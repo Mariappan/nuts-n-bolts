@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 #for file in {START}*.*; do
 for file in *.deb; do
