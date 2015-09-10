@@ -17,7 +17,7 @@ int main(){
 
   /*---- Create the socket. The three arguments are: ----*/
   /* 1) Internet domain 2) Stream socket 3) Default protocol (TCP in this case) */
-  welcomeSocket = socket(PF_INET, SOCK_STREAM, 0);
+  welcomeSocket = socket(PF_INET, SOCK_DGRAM, 0);
 
   /*---- Configure settings of the server address struct ----*/
   /* Address family = Internet */
@@ -32,6 +32,7 @@ int main(){
   /*---- Bind the address struct to the socket ----*/
   bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
 
+#if 0
   /*---- Listen on the socket, with 5 max connection requests queued ----*/
   if(listen(welcomeSocket,5)==0)
     printf("Listening\n");
@@ -41,27 +42,33 @@ int main(){
   /*---- Accept call creates a new socket for the incoming connection ----*/
   addr_size = sizeof serverStorage;
   newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
+#else
+  newSocket = welcomeSocket;
+#endif
 
   {
-    struct msghdr parent_msg;
-    size_t length;
+    struct msghdr child_msg;
+    int rc;
 
-    memset(&parent_msg, 0, sizeof(parent_msg));
-    struct cmsghdr *cmsg;
-    char cmsgbuf[CMSG_SPACE(sizeof(newSocket))];
-    parent_msg.msg_control = cmsgbuf;
-    parent_msg.msg_controllen = sizeof(cmsgbuf); // necessary for CMSG_FIRSTHDR to return the correct value
-    cmsg = CMSG_FIRSTHDR(&parent_msg);
-    cmsg->cmsg_level = SOL_SOCKET;
-    cmsg->cmsg_type = SCM_RIGHTS;
-    cmsg->cmsg_len = CMSG_LEN(sizeof(newSocket));
-    memcpy(CMSG_DATA(cmsg), &newSocket, sizeof(newSocket));
-    parent_msg.msg_controllen = cmsg->cmsg_len; // total size of all control blocks
+    memset(&child_msg,   0, sizeof(child_msg));
+    char cmsgbuf[CMSG_SPACE(sizeof(int))];
+    child_msg.msg_control = cmsgbuf; // make place for the ancillary message to be received
+    child_msg.msg_controllen = sizeof(cmsgbuf);
 
-    if((sendmsg(newSocket, &parent_msg, 0)) < 0)
+    printf("Waiting on recvmsg\n");
+    rc = recvmsg(newSocket, &child_msg, 0);
+    printf("recvmsg return:%d\n", rc);
+
+    struct cmsghdr *cmsg = CMSG_FIRSTHDR(&child_msg);
+    printf("Cmsg is %p Msg_type:%d.\n", cmsg, cmsg?cmsg->cmsg_type:0);
+    if (cmsg == NULL || cmsg -> cmsg_type != SCM_RIGHTS) {
+      printf("The first control structure contains no file descriptor.\n");
+    }
+    else
     {
-      perror("sendmsg()");
-      exit(0);
+      int pass_sd;
+      memcpy(&pass_sd, CMSG_DATA(cmsg), sizeof(pass_sd));
+      printf("Received descriptor = %d\n", pass_sd);
     }
   }
 
