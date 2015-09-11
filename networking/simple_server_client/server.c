@@ -12,7 +12,6 @@
 
 int main(){
   int welcomeSocket, newSocket;
-  char buffer[1024];
   struct sockaddr_storage serverStorage;
   socklen_t addr_size;
 
@@ -105,6 +104,7 @@ int main(){
 #else
 
   /*---- Send message to the socket of the incoming connection ----*/
+  char buffer[1024];
   strcpy(buffer,"Hello World\n");
   send(newSocket,buffer,13,0);
 

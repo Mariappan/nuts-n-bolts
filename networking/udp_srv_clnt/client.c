@@ -12,10 +12,9 @@ char *SERVER_IP = "127.0.0.1";
 
 int main(int argc, char**argv)
 {
-   int sockfd,n;
+   int sockfd;
    struct sockaddr_in servaddr;
    char sendline[1000];
-   char recvline[1000];
    const int on = 1;
 
    if (argv[1])
@@ -39,7 +38,6 @@ int main(int argc, char**argv)
          struct msghdr parent_msg;
          struct iovec iov[1];
          char buf[1024];
-         int rc;
 
          memset(&parent_msg, 0, sizeof(parent_msg));
          parent_msg.msg_name       = &servaddr;
@@ -76,7 +74,8 @@ int main(int argc, char**argv)
          printf("Message Sent\n");
       }
 #else
-      int opt = 1;
+      int n;
+      char recvline[1000];
       sendto(sockfd,sendline,strlen(sendline),0,
              (struct sockaddr *)&servaddr,sizeof(servaddr));
       n=recvfrom(sockfd,recvline,10000,0,NULL,NULL);

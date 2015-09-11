@@ -9,10 +9,8 @@
 
 int main(int argc, char**argv)
 {
-   int sockfd,n;
-   struct sockaddr_in servaddr,cliaddr;
-   socklen_t len;
-   char mesg[1000];
+   int sockfd;
+   struct sockaddr_in servaddr;
 
    sockfd=socket(AF_INET,SOCK_DGRAM,0);
 
@@ -106,6 +104,10 @@ int main(int argc, char**argv)
          }
       }
 #else
+      struct sockaddr_in cliaddr;
+      char mesg[1024];
+      socklen_t len;
+      int n;
       printf("Waiting on recvfrom\n");
       len = sizeof(cliaddr);
       n = recvfrom(sockfd,mesg,1000,0,(struct sockaddr *)&cliaddr,&len);

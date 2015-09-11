@@ -12,7 +12,6 @@
 
 int main(){
   int clientSocket;
-  char buffer[1024];
   socklen_t addr_size;
   int recvbytes;
 
@@ -102,6 +101,7 @@ int main(){
 
 #else
 
+  char buffer[1024];
   recvbytes = recv(clientSocket, buffer, 1024, 0);
   printf("Data received: %d %s", recvbytes, buffer);
 
