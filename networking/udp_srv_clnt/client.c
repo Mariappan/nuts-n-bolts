@@ -2,11 +2,13 @@
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include    <sys/param.h> 
+
+char *SERVER_IP = "127.0.0.1";
 
 int main(int argc, char**argv)
 {
@@ -14,43 +16,56 @@ int main(int argc, char**argv)
    struct sockaddr_in servaddr;
    char sendline[1000];
    char recvline[1000];
+   const int on = 1;
 
-   if (argc != 2)
-   {
-      printf("usage:  udpcli <IP address>\n");
-      exit(1);
-   }
+   if (argv[1])
+       SERVER_IP = argv[1];
 
-   sockfd=socket(AF_UNIX,SOCK_DGRAM,0);
+   sockfd=socket(AF_INET,SOCK_DGRAM,0);
 
    bzero(&servaddr,sizeof(servaddr));
-   servaddr.sin_family = AF_UNIX;
-   servaddr.sin_addr.s_addr=inet_addr(argv[1]);
+   servaddr.sin_family = AF_INET;
+   servaddr.sin_addr.s_addr=inet_addr(SERVER_IP);
    servaddr.sin_port=htons(32000);
 
-   while (fgets(sendline, 10000,stdin) != NULL)
+   if (-1 == setsockopt(sockfd, IPPROTO_IP, IP_TTL,(char *)&on, sizeof on)) {
+       perror("sesockopt IP_PKTINFO error");
+   }
+
+   while (fgets(sendline, 10000, stdin) != NULL)
    {
 #if 1
       {
          struct msghdr parent_msg;
-         size_t length;
+         struct iovec iov[1];
+         char buf[1024];
+         int rc;
 
          memset(&parent_msg, 0, sizeof(parent_msg));
-         struct cmsghdr *cmsg;
-         char cmsgbuf[CMSG_SPACE(sizeof(sockfd))];
          parent_msg.msg_name       = &servaddr;
          parent_msg.msg_namelen    = sizeof (struct sockaddr_in);
+
+         parent_msg.msg_iov        = iov;
+         parent_msg.msg_iovlen     = 1;
+         iov[0].iov_base = buf; /* data we receive from the peer */
+         iov[0].iov_len = sizeof buf;
+
+         strcpy(buf, sendline);
+         iov[0].iov_len = strlen(buf);
+
+         struct cmsghdr *cmsg;
+         char cmsgbuf[CMSG_SPACE(1024)];
+         uint8_t control_data = 8;
+
          parent_msg.msg_control    = cmsgbuf;
-         // necessary for CMSG_FIRSTHDR to return the correct value
          parent_msg.msg_controllen = sizeof(cmsgbuf);
 
-         cmsg             = CMSG_FIRSTHDR(&parent_msg);
-         cmsg->cmsg_level = SOL_SOCKET;
-         cmsg->cmsg_type  = SCM_RIGHTS;
-         cmsg->cmsg_len   = CMSG_LEN(sizeof(sockfd));
-         memcpy(CMSG_DATA(cmsg), &sockfd, sizeof(sockfd));
+         cmsg                      = CMSG_FIRSTHDR(&parent_msg);
+         cmsg->cmsg_level          = SOL_SOCKET;
+         cmsg->cmsg_type           = IP_PKTINFO;
+         cmsg->cmsg_len            = CMSG_LEN(sizeof(sockfd));
+         memcpy(CMSG_DATA(cmsg), &control_data, sizeof(control_data));
 
-         setsockopt(sockfd, IPPROTO_IP, IP_RECVIF, &on, sizeof(on)) < 0;
          parent_msg.msg_controllen = cmsg->cmsg_len; // total size of all control blocks
 
          if((sendmsg(sockfd, &parent_msg, 0)) < 0)
@@ -60,11 +75,13 @@ int main(int argc, char**argv)
          }
          printf("Message Sent\n");
       }
-#endif
+#else
+      int opt = 1;
       sendto(sockfd,sendline,strlen(sendline),0,
              (struct sockaddr *)&servaddr,sizeof(servaddr));
       n=recvfrom(sockfd,recvline,10000,0,NULL,NULL);
       recvline[n]=0;
       fputs(recvline,stdout);
+#endif
    }
 }
