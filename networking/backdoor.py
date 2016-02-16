@@ -15,7 +15,7 @@ s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 try:
     s.bind((HOST, PORT))
 except socket.error as msg:
-    print 'Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1]
+    print ('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
     sys.exit()
 s.listen(1)
 
@@ -23,7 +23,7 @@ s.listen(1)
 while True:
     #wait to accept a connection - blocking call
     conn, addr = s.accept()
-    print 'Connected with ' + addr[0] + ':' + str(addr[1])
+    print ('Connected with ' + addr[0] + ':' + str(addr[1]))
     while True:
         data = conn.recv(1024)
         if not data:
