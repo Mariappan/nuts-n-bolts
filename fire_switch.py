@@ -74,14 +74,17 @@ class FireSwitch(app_manager.RyuApp):
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
-        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
+        self.logger.info("Packet received in DataPath:%s SRC:%s DST:%s PORT:%s", dpid, src, dst, in_port)
 
         if eth.ethertype == ether_types.ETH_TYPE_IP:
             ip = pkt.get_protocols(ipv4.ipv4)[0]
-            self.logger.info("MARI => IPv4: %s %s %s", ip.proto, ip.total_length, ip.header_length)
+            self.logger.info("IPv4 packet received: Protocol:%s TotalLen:%s", ip.proto, ip.total_length)
 
+            # DROPPING UDP packet size greater than 548 and Redirecting DNS packets
             if ip.proto == in_proto.IPPROTO_UDP:
                 udp_hdr = pkt.get_protocols(udp.udp)[0]
+                self.logger.info("UDP packets size:%s", udp_hdr.total_length)
+
                 # Dropping UDP packet of size greater than 548
                 if (udp_hdr.total_length > 548):
                     self.logger.info("Dropping UDP packets size:%s",\
@@ -93,9 +96,15 @@ class FireSwitch(app_manager.RyuApp):
                     self.logger.info("Redirected and dropped DNS packets")
                     return
 
+            # Check TCP Sequence No gaps and 3-way connection mismatch
             if ip.proto == in_proto.IPPROTO_TCP:
-                self.logger.info("MARI => TCP packets")
                 tcp_hdr = pkt.get_protocols(tcp.tcp)[0]
+
+                # Check for youtube.com and drop the packet
+                if (80 == tcp_hdr.src_port or 80 == tcp_hdr.dst_port):
+                    if ('youtube.com' in msg.data):
+                        print ("Dropping youtube page")
+                        return
 
                 if (ip.src, ip.dst, tcp_hdr.src_port, tcp_hdr.dst_port) not in self.tcp_seq:
                     # Initate the next_expected_seq number
