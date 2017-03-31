@@ -90,7 +90,7 @@ class FireSwitch(app_manager.RyuApp):
 
                 # Dropping DNS packet of size greater than 548
                 if (udp_hdr.src_port == 53 or udp_hdr.dst_port == 53):
-                    self.logger.info("Redirected and dropped DNS packets ")
+                    self.logger.info("Redirected and dropped DNS packets")
                     return
 
             if ip.proto == in_proto.IPPROTO_TCP:
@@ -98,12 +98,20 @@ class FireSwitch(app_manager.RyuApp):
                 tcp_hdr = pkt.get_protocols(tcp.tcp)[0]
 
                 if (ip.src, ip.dst, tcp_hdr.src_port, tcp_hdr.dst_port) not in self.tcp_seq:
-                    self.tcp_seq[(ip.src, ip.dst, tcp_hdr.src_port, tcp_hdr.dst_port)] = {}
-                    self.tcp_seq[(ip.src, ip.dst, tcp_hdr.src_port, tcp_hdr.dst_port)]['seq'] = tcp_hdr.seq
-                    self.tcp_seq[(ip.src, ip.dst, tcp_hdr.src_port, tcp_hdr.dst_port)]['next_seq'] = \
-                            self.tcp_seq.seq + (ip.total_length - ip.header_length)
+                    # Initate the next_expected_seq number
+                    expected_seq = tcp_hdr.seq + (ip.total_length - ((ip.header_length * 4) + (tcp_hdr.offset *4)))
+                    self.tcp_seq[(ip.src, ip.dst, tcp_hdr.src_port, tcp_hdr.dst_port)] = expected_seq + 1
+                    print ("Next => expected header " + str(expected_seq))
                 else:
-                    pass
+                    prev_expected_seq = self.tcp_seq[(ip.src, ip.dst, tcp_hdr.src_port, tcp_hdr.dst_port)]
+                    if prev_expected_seq < tcp_hdr.seq:
+                        print ("Expected header " + str(prev_expected_seq) + " Incoming header " + str(tcp_hdr.seq) )
+                        self.logger.info("MARI => Dropping TCP packets(Seq no gap)")
+                        return
+                    else:
+                        expected_seq = tcp_hdr.seq + (ip.total_length - ((ip.header_length * 4) + (tcp_hdr.offset *4)))
+                        self.tcp_seq[(ip.src, ip.dst, tcp_hdr.src_port, tcp_hdr.dst_port)] = expected_seq + 1
+                        print ("Next => expected header " + str(expected_seq))
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
@@ -146,6 +154,12 @@ class FireSwitch(app_manager.RyuApp):
             return
 
         self.logger.info("Configuring datapath")
+
+        # Drop IPv6 packets
+        aclmatch = {}
+        match = ofctl_v1_3.to_match(dp, aclmatch)
+        act_normal = [parser.OFPActionOutput(ofproto.OFPP_NORMAL)]
+        self.add_flow(dp, 0, match, act_normal)
 
         # add catchall drop rule to datapath
         drop_act = []
