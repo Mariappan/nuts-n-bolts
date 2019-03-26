@@ -157,14 +157,14 @@ class FireSwitch(app_manager.RyuApp):
         parser = dp.ofproto_parser
 
         if ev.enter:
-            self.logger.info("MARI => Switch connected:%s", dp.id)
+            self.logger.info("Fireswitch: Switch connected:%s", dp.id)
         else:
-            self.logger.info("MARI => Switch disconnected:%s", dp.id)
+            self.logger.info("Fireswitch: Switch disconnected:%s", dp.id)
             return
 
         self.logger.info("Configuring datapath")
 
-        # Drop IPv6 packets
+        # Make all packet to flow normallyW
         aclmatch = {}
         match = ofctl_v1_3.to_match(dp, aclmatch)
         act_normal = [parser.OFPActionOutput(ofproto.OFPP_NORMAL)]
@@ -173,18 +173,12 @@ class FireSwitch(app_manager.RyuApp):
         # add catchall drop rule to datapath
         drop_act = []
 
-        # Drop IPv6 packets
+        # Drop ICMP packets
         aclmatch = {}
-        aclmatch['eth_type'] = ether_types.ETH_TYPE_IPV6
+        aclmatch['eth_type'] = ether_types.ETH_TYPE_IP
+        aclmatch['ip_proto'] = 0x1
         match = ofctl_v1_3.to_match(dp, aclmatch)
         self.add_flow(dp, 10000, match, drop_act)
-
-        # Drop ICMP packets
-        # aclmatch = {}
-        # aclmatch['eth_type'] = ether_types.ETH_TYPE_IP
-        # aclmatch['ip_proto'] = 0x1
-        # match = ofctl_v1_3.to_match(dp, aclmatch)
-        # self.add_flow(dp, 10000, match, drop_act)
 
         act_redirect = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER)]
 
