@@ -1,0 +1,12 @@
+{
+  "name": "test",
+  "enabled": true,
+  "consul_address": "consul",
+  "consul_port": 8500,
+  "consul_prefix": "api/dev",
+  "poll_interval": 10,
+  "heartbeat": {
+    "enabled": true,
+    "prometheus_url": "https://prometheus.com/api/v2/query"
+   }
+}
